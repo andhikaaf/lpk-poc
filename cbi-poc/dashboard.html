@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard Admin — CBI</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            navy: '#1e3a5f',
+            gold: '#f59e0b',
+          },
+          fontFamily: {
+            sans: ["'Segoe UI'", 'system-ui', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    dialog::backdrop {
+      background: rgba(0, 0, 0, 0.5);
+    }
+    /* Critical fallback if Tailwind is slow */
+    body { font-family: 'Segoe UI', system-ui, sans-serif; }
+    /* Clickable summary cards */
+    .summary-card { cursor: pointer; transition: transform 0.15s ease, box-shadow 0.15s ease; }
+    .summary-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+  </style>
+</head>
+<body class="bg-gray-50 min-h-screen flex flex-col">
+
+  <!-- Header -->
+  <header class="bg-white shadow-sm border-b">
+    <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="bg-navy text-white font-bold px-3 py-2 rounded text-lg">[CBI]</div>
+        <div>
+          <h1 class="text-lg md:text-xl font-bold text-navy">Dashboard Admin — CBI Canggih Brastel Indonesia</h1>
+          <p class="text-xs md:text-sm text-gray-500">Monitoring Dokumen & Status Keberangkatan Siswa</p>
+        </div>
+      </div>
+      <a href="index.html"
+        class="bg-amber-500 hover:bg-amber-600 text-white font-semibold px-4 py-2 rounded text-sm transition-colors hidden sm:inline-block">
+        + Pendaftaran Baru
+      </a>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="flex-1 max-w-6xl mx-auto w-full px-4 py-8">
+
+    <!-- Summary Cards -->
+    <div id="summaryCards" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+      <!-- Cards rendered by JS -->
+    </div>
+
+    <!-- Filter Bar -->
+    <div class="flex flex-wrap gap-2 mb-6">
+      <button class="filter-btn bg-navy text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors" data-filter="semua">
+        Semua
+      </button>
+      <button class="filter-btn bg-white text-navy border border-gray-300 px-4 py-2 rounded-lg text-sm font-semibold transition-colors hover:bg-gray-50" data-filter="kuning">
+        Hampir Lengkap
+      </button>
+      <button class="filter-btn bg-white text-navy border border-gray-300 px-4 py-2 rounded-lg text-sm font-semibold transition-colors hover:bg-gray-50" data-filter="merah">
+        Perlu Tindakan
+      </button>
+      <button class="filter-btn bg-white text-navy border border-gray-300 px-4 py-2 rounded-lg text-sm font-semibold transition-colors hover:bg-gray-50" data-filter="hijau">
+        Siap Berangkat
+      </button>
+    </div>
+
+    <!-- Table Container -->
+    <div class="bg-white rounded-xl shadow-md overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="bg-gray-50 border-b">
+            <th class="text-left px-4 py-3 font-semibold text-gray-600">Nama</th>
+            <th class="text-left px-4 py-3 font-semibold text-gray-600">Program</th>
+            <th class="text-left px-4 py-3 font-semibold text-gray-600">Target Keberangkatan</th>
+            <th class="text-left px-4 py-3 font-semibold text-gray-600">Hari Tersisa</th>
+            <th class="text-left px-4 py-3 font-semibold text-gray-600">Status Dokumen</th>
+            <th class="text-center px-4 py-3 font-semibold text-gray-600">Aksi</th>
+          </tr>
+        </thead>
+        <tbody id="studentTableBody">
+          <!-- Rows rendered by JS -->
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Mobile: Pendaftaran Baru link (visible on small screens) -->
+    <div class="sm:hidden mt-6 text-center">
+      <a href="index.html"
+        class="inline-block bg-amber-500 hover:bg-amber-600 text-white font-semibold px-6 py-3 rounded-lg transition-colors">
+        + Pendaftaran Baru
+      </a>
+    </div>
+  </main>
+
+  <!-- Detail Modal -->
+  <dialog id="studentModal" role="dialog" aria-modal="true"
+    class="rounded-2xl shadow-2xl p-0 w-full max-w-2xl mx-4 md:mx-auto backdrop:bg-black/50">
+    <div class="p-6 md:p-8">
+      <!-- Modal Header -->
+      <div class="flex items-start justify-between mb-6">
+        <div>
+          <h2 id="modalStudentName" class="text-xl font-bold text-navy"></h2>
+          <span id="modalProgramBadge" class="inline-block px-3 py-1 rounded-full text-xs font-semibold mt-1"></span>
+        </div>
+        <button id="modalCloseBtn" aria-label="Tutup"
+          class="text-gray-400 hover:text-gray-600 text-2xl leading-none p-1">✕</button>
+      </div>
+
+      <!-- Progress Bar -->
+      <div class="mb-6">
+        <div class="flex justify-between text-sm mb-1">
+          <span id="modalProgressText" class="font-semibold text-gray-700"></span>
+          <span id="modalProgressPercent" class="font-semibold"></span>
+        </div>
+        <div class="w-full bg-gray-200 rounded-full h-3">
+          <div id="modalProgressBar" class="h-3 rounded-full transition-all duration-300"></div>
+        </div>
+      </div>
+
+      <!-- Document Checklist -->
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b">
+              <th class="text-left py-2 px-3 font-semibold text-gray-600">Dokumen</th>
+              <th class="text-left py-2 px-3 font-semibold text-gray-600">Status</th>
+              <th class="text-left py-2 px-3 font-semibold text-gray-600">Keterangan</th>
+            </tr>
+          </thead>
+          <tbody id="modalDocBody">
+            <!-- Rows rendered by JS -->
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Close Button bottom -->
+      <div class="mt-6 text-right">
+        <button id="modalCloseBtnBottom"
+          class="bg-navy text-white font-semibold px-6 py-2 rounded-lg hover:bg-navy/90 transition-colors">
+          Tutup
+        </button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Footer -->
+  <footer class="text-center text-gray-500 text-sm py-6 mt-12 border-t">
+    © 2026 CBI — Canggih Brastel Indonesia | Powered by PT. Tenkei Canggih Cendekia
+  </footer>
+
+  <script>
+    // === Mock Data ===
+    const students = [
+      {
+        id: 1,
+        nama: "Budi Santoso",
+        program: "Magang",
+        targetKeberangkatan: "2026-05-15",
+        status: "merah",
+        dokumen: {
+          "KTP": "ada",
+          "Ijazah": "ada",
+          "Surat Keterangan Sehat": "ada",
+          "MCU — Medical Check Up (standar Jepang)": "proses",
+          "SKCK": "ada",
+          "Paspor (min. 18 bulan)": "ada",
+          "Sertifikat N4/N5": "ada",
+          "Surat Izin Orang Tua": "ada",
+          "CoE — Certificate of Eligibility": "belum",
+          "Tiket Pesawat": "belum"
+        }
+      },
+      {
+        id: 2,
+        nama: "Siti Rahayu",
+        program: "Tokutei",
+        targetKeberangkatan: "2026-04-30",
+        status: "kuning",
+        dokumen: {
+          "KTP": "ada",
+          "Ijazah": "ada",
+          "Surat Keterangan Sehat": "ada",
+          "MCU — Medical Check Up (standar Jepang)": "ada",
+          "SKCK": "ada",
+          "Paspor (min. 18 bulan)": "ada",
+          "Sertifikat SSW": "ada",
+          "Sertifikat N4 (minimum)": "ada",
+          "CoE — Certificate of Eligibility": "proses",
+          "Kontrak Kerja": "ada",
+          "Tiket Pesawat": "belum"
+        }
+      },
+      {
+        id: 3,
+        nama: "Agus Firmansyah",
+        program: "Magang",
+        targetKeberangkatan: "2026-06-01",
+        status: "hijau",
+        dokumen: {
+          "KTP": "ada",
+          "Ijazah": "ada",
+          "Surat Keterangan Sehat": "ada",
+          "MCU — Medical Check Up (standar Jepang)": "ada",
+          "SKCK": "ada",
+          "Paspor (min. 18 bulan)": "ada",
+          "Sertifikat N4/N5": "ada",
+          "Surat Izin Orang Tua": "ada",
+          "CoE — Certificate of Eligibility": "ada",
+          "Tiket Pesawat": "ada"
+        }
+      },
+      {
+        id: 4,
+        nama: "Dewi Lestari",
+        program: "Tokutei",
+        targetKeberangkatan: "2026-05-20",
+        status: "kuning",
+        dokumen: {
+          "KTP": "ada",
+          "Ijazah": "ada",
+          "Surat Keterangan Sehat": "ada",
+          "MCU — Medical Check Up (standar Jepang)": "ada",
+          "SKCK": "ada",
+          "Paspor (min. 18 bulan)": "ada",
+          "Sertifikat SSW": "ada",
+          "Sertifikat N4 (minimum)": "ada",
+          "CoE — Certificate of Eligibility": "ada",
+          "Kontrak Kerja": "belum",
+          "Tiket Pesawat": "ada"
+        }
+      },
+      {
+        id: 5,
+        nama: "Reza Pratama",
+        program: "Magang",
+        targetKeberangkatan: "2026-04-20",
+        status: "merah",
+        urgent: true,
+        dokumen: {
+          "KTP": "ada",
+          "Ijazah": "ada",
+          "Surat Keterangan Sehat": "ada",
+          "MCU — Medical Check Up (standar Jepang)": "proses",
+          "SKCK": "belum",
+          "Paspor (min. 18 bulan)": "ada",
+          "Sertifikat N4/N5": "ada",
+          "Surat Izin Orang Tua": "ada",
+          "CoE — Certificate of Eligibility": "belum",
+          "Tiket Pesawat": "belum"
+        }
+      },
+      {
+        id: 6,
+        nama: "Nur Hidayah",
+        program: "Tokutei",
+        targetKeberangkatan: "2026-07-01",
+        status: "hijau",
+        dokumen: {
+          "KTP": "ada",
+          "Ijazah": "ada",
+          "Surat Keterangan Sehat": "ada",
+          "MCU — Medical Check Up (standar Jepang)": "ada",
+          "SKCK": "ada",
+          "Paspor (min. 18 bulan)": "ada",
+          "Sertifikat SSW": "ada",
+          "Sertifikat N4 (minimum)": "ada",
+          "CoE — Certificate of Eligibility": "ada",
+          "Kontrak Kerja": "ada",
+          "Tiket Pesawat": "ada"
+        }
+      },
+      {
+        id: 7,
+        nama: "Hendra Wijaya",
+        program: "Magang",
+        targetKeberangkatan: "2026-05-10",
+        status: "kuning",
+        dokumen: {
+          "KTP": "ada",
+          "Ijazah": "ada",
+          "Surat Keterangan Sehat": "ada",
+          "MCU — Medical Check Up (standar Jepang)": "ada",
+          "SKCK": "ada",
+          "Paspor (min. 18 bulan)": "ada",
+          "Sertifikat N4/N5": "ada",
+          "Surat Izin Orang Tua": "ada",
+          "CoE — Certificate of Eligibility": "ada",
+          "Tiket Pesawat": "belum"
+        }
+      },
+      {
+        id: 8,
+        nama: "Rina Kusuma",
+        program: "Tokutei",
+        targetKeberangkatan: "2026-06-15",
+        status: "merah",
+        dokumen: {
+          "KTP": "ada",
+          "Ijazah": "ada",
+          "Surat Keterangan Sehat": "ada",
+          "MCU — Medical Check Up (standar Jepang)": "ada",
+          "SKCK": "ada",
+          "Paspor (min. 18 bulan)": "ada",
+          "Sertifikat SSW": "belum",
+          "Sertifikat N4 (minimum)": "ada",
+          "CoE — Certificate of Eligibility": "belum",
+          "Kontrak Kerja": "ada",
+          "Tiket Pesawat": "belum"
+        }
+      }
+    ];
+
+    // === Constants ===
+    const bulanIndo = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+
+    const statusBadgeMap = {
+      hijau: { text: '✓ Lengkap', classes: 'bg-green-100 text-green-800' },
+      kuning: { text: '⚠ Hampir Lengkap', classes: 'bg-amber-100 text-amber-800' },
+      merah: { text: '✗ Perlu Tindakan', classes: 'bg-red-100 text-red-800' }
+    };
+
+    const docStatusMap = {
+      ada: { icon: '✓', text: 'Sudah Ada', classes: 'text-green-700', badge: 'bg-green-100 text-green-800', keterangan: '—' },
+      proses: { icon: '⏳', text: 'Dalam Proses', classes: 'text-amber-700', badge: 'bg-amber-100 text-amber-800', keterangan: 'Menunggu konfirmasi' },
+      belum: { icon: '✗', text: 'Belum Ada', classes: 'text-red-700', badge: 'bg-red-100 text-red-800', keterangan: 'Segera proses' }
+    };
+
+    // === Utility Functions ===
+    function formatDate(dateStr) {
+      const parts = dateStr.split('-');
+      const year = parseInt(parts[0]);
+      const month = parseInt(parts[1]) - 1;
+      const day = parseInt(parts[2]);
+      return `${day} ${bulanIndo[month]} ${year}`;
+    }
+
+    function getDaysRemaining(dateStr) {
+      const parts = dateStr.split('-');
+      const target = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      target.setHours(0, 0, 0, 0);
+      return Math.ceil((target - today) / (1000 * 60 * 60 * 24));
+    }
+
+    function getDaysRemainingDisplay(dateStr) {
+      const days = getDaysRemaining(dateStr);
+      if (days < 0) {
+        return { text: 'Sudah lewat ⚠', classes: 'text-red-600 font-bold' };
+      } else if (days <= 30) {
+        return { text: `${days} hari lagi ⚠`, classes: 'text-red-600 font-bold' };
+      } else if (days <= 60) {
+        return { text: `${days} hari lagi`, classes: 'text-amber-600' };
+      } else {
+        return { text: `${days} hari lagi`, classes: 'text-gray-500' };
+      }
+    }
+
+    // === Render Summary Cards ===
+    function renderSummaryCards() {
+      const total = students.length;
+      const hijau = students.filter(s => s.status === 'hijau').length;
+      const kuning = students.filter(s => s.status === 'kuning').length;
+      const merah = students.filter(s => s.status === 'merah').length;
+
+      const cards = [
+        { label: 'Total Pendaftar', value: total, icon: '👥', border: 'border-gray-300', text: 'text-gray-700', filter: 'semua' },
+        { label: 'Siap Berangkat', value: hijau, icon: '✅', border: 'border-green-400', text: 'text-green-700', filter: 'hijau' },
+        { label: 'Hampir Lengkap', value: kuning, icon: '⚠️', border: 'border-amber-400', text: 'text-amber-700', filter: 'kuning' },
+        { label: 'Perlu Tindakan', value: merah, icon: '❗', border: 'border-red-400', text: 'text-red-700', filter: 'merah' }
+      ];
+
+      const container = document.getElementById('summaryCards');
+      container.innerHTML = cards.map(card => `
+        <div class="bg-white rounded-xl border-l-4 ${card.border} shadow-sm p-5 summary-card"
+             data-card-filter="${card.filter}" onclick="filterFromCard('${card.filter}')">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-xs text-gray-500 uppercase tracking-wide font-semibold">${card.label}</p>
+              <p class="text-3xl font-bold ${card.text} mt-1">${card.value}</p>
+            </div>
+            <span class="text-2xl">${card.icon}</span>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // === Render Table ===
+    function renderTable(filter = 'semua') {
+      const tbody = document.getElementById('studentTableBody');
+      const filtered = filter === 'semua' ? [...students] : students.filter(s => s.status === filter);
+
+      // Sort by departure date (nearest first)
+      filtered.sort((a, b) => new Date(a.targetKeberangkatan) - new Date(b.targetKeberangkatan));
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="6" class="px-4 py-12 text-center text-gray-400">
+              <div class="text-4xl mb-2">📋</div>
+              <p class="font-semibold">Tidak ada data</p>
+              <p class="text-sm">Tidak ada siswa dengan status ini.</p>
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      tbody.innerHTML = filtered.map(student => {
+        const daysDisplay = getDaysRemainingDisplay(student.targetKeberangkatan);
+        const statusBadge = statusBadgeMap[student.status];
+        const programBadge = student.program === 'Magang'
+          ? 'bg-blue-100 text-blue-800'
+          : 'bg-purple-100 text-purple-800';
+        const rowBg = student.urgent ? 'bg-red-50 hover:bg-red-100' : 'hover:bg-gray-50';
+
+        return `
+          <tr class="border-b ${rowBg}" data-status="${student.status}">
+            <td class="px-4 py-3 font-medium text-gray-900">${student.nama}</td>
+            <td class="px-4 py-3">
+              <span class="inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold ${programBadge}">
+                ${student.program === 'Magang' ? 'Magang' : 'Tokutei Ginou'}
+              </span>
+            </td>
+            <td class="px-4 py-3 text-gray-600">${formatDate(student.targetKeberangkatan)}</td>
+            <td class="px-4 py-3 ${daysDisplay.classes}">${daysDisplay.text}</td>
+            <td class="px-4 py-3">
+              <span class="inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold ${statusBadge.classes}">
+                ${statusBadge.text}
+              </span>
+            </td>
+            <td class="px-4 py-3 text-center">
+              <button onclick="openModal(${student.id})"
+                class="border border-navy text-navy px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-navy hover:text-white transition-colors">
+                Lihat Detail
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    // === Filter Logic ===
+    const filterBtns = document.querySelectorAll('.filter-btn');
+
+    function setActiveFilter(filterValue) {
+      filterBtns.forEach(b => {
+        if (b.dataset.filter === filterValue) {
+          b.className = 'filter-btn bg-navy text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors';
+        } else {
+          b.className = 'filter-btn bg-white text-navy border border-gray-300 px-4 py-2 rounded-lg text-sm font-semibold transition-colors hover:bg-gray-50';
+        }
+      });
+      renderTable(filterValue);
+    }
+
+    filterBtns.forEach(btn => {
+      btn.addEventListener('click', () => setActiveFilter(btn.dataset.filter));
+    });
+
+    // Click summary card to filter
+    function filterFromCard(filterValue) {
+      setActiveFilter(filterValue);
+    }
+
+    // === Modal Logic ===
+    const modal = document.getElementById('studentModal');
+    const modalCloseBtn = document.getElementById('modalCloseBtn');
+    const modalCloseBtnBottom = document.getElementById('modalCloseBtnBottom');
+    let lastFocusedElement = null;
+
+    function openModal(studentId) {
+      lastFocusedElement = document.activeElement;
+      const student = students.find(s => s.id === studentId);
+      if (!student) return;
+
+      // Header
+      document.getElementById('modalStudentName').textContent = student.nama;
+      const badge = document.getElementById('modalProgramBadge');
+      if (student.program === 'Magang') {
+        badge.textContent = 'Magang';
+        badge.className = 'inline-block px-3 py-1 rounded-full text-xs font-semibold mt-1 bg-blue-100 text-blue-800';
+      } else {
+        badge.textContent = 'Tokutei Ginou';
+        badge.className = 'inline-block px-3 py-1 rounded-full text-xs font-semibold mt-1 bg-purple-100 text-purple-800';
+      }
+
+      // Progress
+      const docs = student.dokumen;
+      const totalDocs = Object.keys(docs).length;
+      const completeDocs = Object.values(docs).filter(v => v === 'ada').length;
+      const percentage = Math.round((completeDocs / totalDocs) * 100);
+
+      document.getElementById('modalProgressText').textContent = `${completeDocs} / ${totalDocs} dokumen lengkap`;
+      document.getElementById('modalProgressPercent').textContent = `${percentage}%`;
+
+      const progressBar = document.getElementById('modalProgressBar');
+      progressBar.style.width = `${percentage}%`;
+
+      // Progress bar color
+      let barColor = 'bg-red-500';
+      let percentColor = 'text-red-600';
+      if (percentage >= 90) {
+        barColor = 'bg-green-500';
+        percentColor = 'text-green-600';
+      } else if (percentage >= 60) {
+        barColor = 'bg-amber-500';
+        percentColor = 'text-amber-600';
+      }
+      progressBar.className = `h-3 rounded-full transition-all duration-300 ${barColor}`;
+      document.getElementById('modalProgressPercent').className = `font-semibold ${percentColor}`;
+
+      // Document checklist — sort by priority: belum first, then proses, then ada
+      const docPriority = { belum: 0, proses: 1, ada: 2 };
+      const sortedDocs = Object.entries(docs).sort((a, b) => docPriority[a[1]] - docPriority[b[1]]);
+
+      const docBody = document.getElementById('modalDocBody');
+      docBody.innerHTML = sortedDocs.map(([docName, status]) => {
+        const s = docStatusMap[status];
+        return `
+          <tr class="border-b last:border-0">
+            <td class="py-2.5 px-3 text-gray-800">${docName}</td>
+            <td class="py-2.5 px-3">
+              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${s.badge}">
+                ${s.icon} ${s.text}
+              </span>
+            </td>
+            <td class="py-2.5 px-3 text-gray-500 text-xs">${s.keterangan}</td>
+          </tr>
+        `;
+      }).join('');
+
+      modal.showModal();
+      modalCloseBtn.focus();
+    }
+
+    function closeModal() {
+      modal.close();
+      if (lastFocusedElement) {
+        lastFocusedElement.focus();
+      }
+    }
+
+    modalCloseBtn.addEventListener('click', closeModal);
+    modalCloseBtnBottom.addEventListener('click', closeModal);
+
+    // Close on backdrop click
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        closeModal();
+      }
+    });
+
+    // Escape key fallback
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && modal.open) {
+        closeModal();
+      }
+    });
+
+    // === Initialize ===
+    renderSummaryCards();
+    renderTable();
+  </script>
+</body>
+</html>
